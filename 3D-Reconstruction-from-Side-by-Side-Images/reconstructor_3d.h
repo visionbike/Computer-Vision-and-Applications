@@ -10,11 +10,11 @@
 #include <opencv2/highgui.hpp>
 #include <utility>
 
-#define MAX_VALUE 80
-#define VALUE_OFFSET 10
-#define H_HALF_SIZE 1000
-#define V_HALF_SIZE 1000
-#define THRESHOLD 0.00005
+constexpr auto MAX_VALUE = 80;
+constexpr auto VALUE_OFFSET = 10;
+constexpr auto H_HALF_SIZE = 300;
+constexpr auto V_HALF_SIZE = 300;
+constexpr auto THRESHOLD = 0.0001;
 
 class Reconstructor3D
 {
@@ -37,6 +37,7 @@ private:
     };
     static void _readMatrix(std::ifstream& f, cv::Mat& m, int nrows, int ncols);
     cv::Point3d _estimate3DPoint(double x1, double y1, double x2, double y2);
+    void _verify3DPoint(int width, int height);
 private:
     cv::Mat m_leftK, m_rightK;      // Left and right K matrices
     cv::Mat m_leftRT, m_rightRT;    // Left and right RT matrices

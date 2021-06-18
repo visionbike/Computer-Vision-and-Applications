@@ -1,7 +1,5 @@
 #include "reconstructor_3d.h"
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "ConstantParameter"
 Reconstructor3D::Reconstructor3D() :
     m_hHalfSize(H_HALF_SIZE), m_vHalfSize(V_HALF_SIZE), m_thresh(THRESHOLD), m_objHeight(0)
 {
@@ -100,13 +98,32 @@ cv::Point3d Reconstructor3D::_estimate3DPoint(double x1, double y1, double x2, d
     return cv::Point3d(X.at<double>(0, 0), X.at<double>(1, 0), X.at<double>(2, 0));
 }
 
+void Reconstructor3D::_verify3DPoint(int width, int height)
+{
+    std::vector<cv::Point3d> pts3d = m_pts3d;
+    m_pts3d.clear();
+    for (auto& pt : pts3d) {
+        cv::Mat pt3d = (cv::Mat_<double>(4, 1) << pt.x, pt.y, pt.z, 1.);
+        cv::Mat lpt = m_leftP * pt3d;
+        cv::Mat rpt = m_rightP * pt3d;
+        lpt /= lpt.at<double>(2, 0);
+        rpt /= rpt.at<double>(2, 0);
+        if ((0 <= lpt.at<double>(0, 0) <= width) &&
+            (0 <= lpt.at<double>(1, 0) <= height) &&
+            (0 <= rpt.at<double>(0, 0) <= width) &&
+            (0 <= rpt.at<double>(1, 0) <= height)) {
+            m_pts3d.push_back(pt);
+        }
+    }
+}
+
 void Reconstructor3D::reconstruct()
 {
     // Scan through each image.
     if (!m_pts3d.empty()) { m_pts3d.clear(); }
-    for (const auto & entry : std::filesystem::directory_iterator(m_data_root)) {
+    for (auto& entry : std::filesystem::directory_iterator(m_data_root)) {
         // Read image
-        cv::Mat img = cv::imread(entry.path(), cv::IMREAD_GRAYSCALE);
+        cv::Mat img = cv::imread(entry.path().string(), cv::IMREAD_GRAYSCALE);
         // Skip if cannot read image
         if (img.empty()) { continue; }
         std::cout << "Processing " << entry.path() << "..." << std::endl;
@@ -127,38 +144,60 @@ void Reconstructor3D::reconstruct()
             cv::minMaxIdx(right.row(i), nullptr, &max);
             rightMax.push_back(max);
         }
-        // Scan each row to find corresponding left/right points
+        // Scan each row to find corresponding left/right points and construct 3D point
+        int vBoundMin = -1, vBoundMax = -1, hBoundMin = -1, hBoundMax = -1;
         for (int i = 0; i < left.rows; ++i) {
             for (int j = 0; j < left.cols; ++j) {
-                if (leftMax[i] == 0 || left.at<double>(i, j) < leftMax[i] - VALUE_OFFSET) { continue; }
-                cv::Mat l = m_F * (cv::Mat_<double>(3, 1) << double(j), double(i), 1.);
-                int vBoundMin = (i - m_vHalfSize < 0) ? 0 : i - m_vHalfSize;
-                int vBoundMax = (i + m_vHalfSize > right.rows) ? right.rows : i + m_vHalfSize;
-                int hBoundMin = (j - m_hHalfSize < 0) ? 0 : j - m_hHalfSize;
-                int hBoundMax = (j + m_hHalfSize > right.cols) ? right.cols : j + m_hHalfSize;
-                for (int y = vBoundMin; y < vBoundMax; ++y) {
-                    for (int x = hBoundMin; x < hBoundMax; ++x) {
-                        if (rightMax[y] == 0 || right.at<double>(y, x) < rightMax[y] - VALUE_OFFSET) { continue; }
-                        if (std::abs(l.at<double>(0, 0) * x + l.at<double>(1, 0) * y + l.at<double>(2, 0)) >= m_thresh) { continue; }
-                        cv::Point3d pt3d = _estimate3DPoint(j, i, x, y);
-                        // Ignore the point with y > 130 (height of 3D model)
-                        if (std::abs(pt3d.y) > m_objHeight) { continue; }
-                        // Pass the point with same coordinates
-                        if (std::any_of(m_pts3d.begin(), m_pts3d.end(), _compare(pt3d))) { continue; }
-                        m_pts3d.push_back(pt3d);
+                vBoundMin = (i - m_vHalfSize < 0) ? 0 : i - m_vHalfSize;
+                vBoundMax = (i + m_vHalfSize > right.rows) ? right.rows : i + m_vHalfSize;
+                hBoundMin = (j - m_hHalfSize < 0) ? 0 : j - m_hHalfSize;
+                hBoundMax = (j + m_hHalfSize > right.cols) ? right.cols : j + m_hHalfSize;
+                // Find coresponding right point for left point
+                if (leftMax[i] != 0 && left.at<double>(i, j) >= leftMax[i] - VALUE_OFFSET) {
+                    cv::Mat l = m_F * (cv::Mat_<double>(3, 1) << double(j), double(i), 1.);
+                    for (int y = vBoundMin; y < vBoundMax; ++y) {
+                        for (int x = hBoundMin; x < hBoundMax; ++x) {
+                            if (rightMax[y] == 0 || right.at<double>(y, x) < rightMax[y] - VALUE_OFFSET) { continue; }
+                            if (std::abs(l.at<double>(0, 0) * x + l.at<double>(1, 0) * y + l.at<double>(2, 0)) >= m_thresh) { continue; }
+                            cv::Point3d pt3d = _estimate3DPoint(j, i, x, y);
+                            // Ignore the point with y > 130 (height of 3D model)
+                            if (std::abs(pt3d.y) > m_objHeight) { continue; }
+                            // Pass the point with same coordinates
+                            if (std::any_of(m_pts3d.begin(), m_pts3d.end(), _compare(pt3d))) { continue; }
+                            m_pts3d.push_back(pt3d);
+                        }
+                    }
+                }
+                // Find corresponding left point for right point
+                if (rightMax[i] != 0 && right.at<double>(i, j) >= rightMax[i] - VALUE_OFFSET) {
+                    cv::Mat l = m_F * (cv::Mat_<double>(3, 1) << double(j), double(i), 1.);
+                    for (int y = vBoundMin; y < vBoundMax; ++y) {
+                        for (int x = hBoundMin; x < hBoundMax; ++x) {
+                            if (leftMax[y] == 0 || left.at<double>(y, x) < leftMax[y] - VALUE_OFFSET) { continue; }
+                            if (std::abs(l.at<double>(0, 0) * x + l.at<double>(1, 0) * y + l.at<double>(2, 0)) >= m_thresh) { continue; }
+                            cv::Point3d pt3d = _estimate3DPoint(x, y, j, i);
+                            // Ignore the point with y > 130 (height of 3D model)
+                            if (std::abs(pt3d.y) > m_objHeight) { continue; }
+                            // Pass the point with same coordinates
+                            if (std::any_of(m_pts3d.begin(), m_pts3d.end(), _compare(pt3d))) { continue; }
+                            m_pts3d.push_back(pt3d);
+                        }
                     }
                 }
             }
-        }
+        } 
     }
+    // Verfiry valid 3d points
     std::cout << "Number of obtained 3D points: " << m_pts3d.size() << std::endl;
+    _verify3DPoint(1280, 720);
+    std::cout << "Number of valid 3D points: " << m_pts3d.size() << std::endl;
     std::cout << "Done!" << std::endl;
 }
 
 void Reconstructor3D::exportXYZ()
 {
     std::cout << "Export to XYZ file..." << std::endl;
-    std::ofstream f("reconstruct3D.xyz");
+    std::ofstream f("reconstruct3d.xyz");
     if (!f.is_open()) {
         std::cout << "Cannot save reconstruct3D.xyz" << std::endl;
         return;
@@ -167,4 +206,5 @@ void Reconstructor3D::exportXYZ()
         f << pt.x << " " << pt.y << " " << pt.z << std::endl;
     }
     f.close();
+    std::cout << "Saved to reconstruct3D.xyz!" << std::endl;
 }

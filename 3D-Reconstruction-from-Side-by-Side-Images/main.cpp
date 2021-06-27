@@ -1,4 +1,5 @@
-#include <time.h>
+#include <ctime>
+#include <iomanip>
 #include "reconstructor_3d.h"
 
 int main() {
@@ -9,7 +10,7 @@ int main() {
     recon.reconstruct();
     time(&end);
     // Calculating total time taken by the program.
-    double time_taken = double(end - start);
+    auto time_taken = double(end - start);
     std::cout << "Time taken by program is : " << std::fixed << time_taken << std::setprecision(5) << " sec " << std::endl;
     recon.exportXYZ();
     std::cout << "Done!" << std::endl;

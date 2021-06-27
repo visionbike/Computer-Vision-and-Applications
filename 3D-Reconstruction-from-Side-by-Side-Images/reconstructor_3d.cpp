@@ -1,5 +1,7 @@
 #include "reconstructor_3d.h"
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "ConstantParameter"
 Reconstructor3D::Reconstructor3D() :
     m_hHalfSize(H_HALF_SIZE), m_vHalfSize(V_HALF_SIZE), m_thresh(THRESHOLD), m_objHeight(0)
 {
@@ -145,14 +147,14 @@ void Reconstructor3D::reconstruct()
             rightMax.push_back(max);
         }
         // Scan each row to find corresponding left/right points and construct 3D point
-        int vBoundMin = -1, vBoundMax = -1, hBoundMin = -1, hBoundMax = -1;
+        int vBoundMin, vBoundMax, hBoundMin, hBoundMax;
         for (int i = 0; i < left.rows; ++i) {
             for (int j = 0; j < left.cols; ++j) {
                 vBoundMin = (i - m_vHalfSize < 0) ? 0 : i - m_vHalfSize;
                 vBoundMax = (i + m_vHalfSize > right.rows) ? right.rows : i + m_vHalfSize;
                 hBoundMin = (j - m_hHalfSize < 0) ? 0 : j - m_hHalfSize;
                 hBoundMax = (j + m_hHalfSize > right.cols) ? right.cols : j + m_hHalfSize;
-                // Find coresponding right point for left point
+                // Find corresponding right point for left point
                 if (leftMax[i] != 0 && left.at<double>(i, j) >= leftMax[i] - VALUE_OFFSET) {
                     cv::Mat l = m_F * (cv::Mat_<double>(3, 1) << double(j), double(i), 1.);
                     for (int y = vBoundMin; y < vBoundMax; ++y) {
@@ -187,7 +189,7 @@ void Reconstructor3D::reconstruct()
             }
         } 
     }
-    // Verfiry valid 3d points
+    // Verify valid 3d points
     std::cout << "Number of obtained 3D points: " << m_pts3d.size() << std::endl;
     _verify3DPoint(1280, 720);
     std::cout << "Number of valid 3D points: " << m_pts3d.size() << std::endl;

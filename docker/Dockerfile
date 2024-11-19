@@ -1,11 +1,11 @@
-ARG DOCKER_NVIDIA_CUDA_VERSION=12.6.2
+ARG DOCKER_NVIDIA_CUDA_VERSION=12.4.1
 ARG DOCKER_NVIDIA_CUDNN_VERSION=""
 ARG DOCKER_UBUNTU_VERSION=22.04
 FROM nvidia/cuda:${DOCKER_NVIDIA_CUDA_VERSION}-cudnn${DOCKER_NVIDIA_CUDNN_VERSION}-devel-ubuntu${DOCKER_UBUNTU_VERSION}
 
 ARG GCC_VERSION=12
-ARG CLANG_VARION=17
-ARG CMAKE_VERSION=3.28.3
+ARG CLANG_VERSION=17
+ARG CMAKE_VERSION=3.29.8
 ARG NINJA_VERSION=1.11.1
 ARG LIBTORCH_VERSION=2.5.1
 ARG CUDA_ARCH=8.6
@@ -43,8 +43,8 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} $
 # Install Clang
 RUN apt-get update && apt-get install -y lsb-release software-properties-common gnupg
 RUN wget https://apt.llvm.org/llvm.sh && chmod u+x llvm.sh
-RUN ./llvm.sh ${CLANG_VARION} all
-RUN ln -s /usr/bin/clang-${CLANG_VARION} /usr/bin/clang && ln -s /usr/bin/clang++-${CLANG_VARION} /usr/bin/clang++
+RUN ./llvm.sh ${CLANG_VERSION} all
+RUN ln -s /usr/bin/clang-${CLANG_VERSION} /usr/bin/clang && ln -s /usr/bin/clang++-${CLANG_VERSION} /usr/bin/clang++
 
 # Install Ninja
 RUN wget "https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip"

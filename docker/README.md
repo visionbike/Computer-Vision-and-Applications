@@ -11,9 +11,9 @@ The main feature to use docker container for development is to encapsulate all d
 
 ## Docker Details
 
-- NVIDIA CUDA 12.6.2.
+- NVIDIA CUDA 12.4.1
 - NVIDIA CUDNN 9.
-- CMAKE 3.38.3
+- CMAKE 3.29.8.
 - GCC 12.
 - LLVM/CLang 17.
 - Ninja 1.11.1.
@@ -25,7 +25,7 @@ The main feature to use docker container for development is to encapsulate all d
 
 - NVIDIA RTX-3070 Ti (Notebook).
 - Ubuntu 22.04 LTS.
-- NVIDIA Driver 555.58.02.
+- NVIDIA Driver 550.120.
 
 ## Dependencies Installation
 
@@ -63,7 +63,7 @@ sudo rm /etc/apt/sources.list.d/docker.list
 sudo rm /etc/apt/keyrings/docker.asc
 ```
 
-#### B. The `apt` repository Installation
+#### B. The `apt` Repository Installation
 
 1. Set up Docker's `apt` repository.
 
@@ -206,6 +206,94 @@ Go to the directory where you store the `Dockerfile` and ru the command:
 cd ./docker/
 docker build --no-cache --build-arg UID=$(id -u) -t clioncv -f ./Dockerfile .
 ```
+
+Check the GPU support in the built docker image by following command:
+
+```sh
+docker run --rm --runtime=nvidia --gpus all clioncv nvidia-smi
+```
+
+The output should be as belows::
+
+```sh
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.4.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Tue Nov 19 16:38:26 2024       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.120                Driver Version: 550.120        CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 3070 ...    Off |   00000000:01:00.0  On |                  N/A |
+| N/A   49C    P8             14W /  115W |      71MiB /   8192MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
++-----------------------------------------------------------------------------------------+
+```
+
+## Toolchain Setup in CLion
+
+1. Open CLion and open the project.
+
+2. To configure the docker toolchain, go to `File -> Settings -> Build, Execution, Deployment -> Toolchains` and add a new toolchain.
+
+![Setup toolchain](images/01_setup_docker_toolchain.png)
+
+3. Click `+` button and select `Docker` from the dropdown menu. If you meet the denied permission issue in `/var/run/docker.sock` when loading docker server (see more in `Gearwheel` symbol at `Server`), then run the following commands:
+
+```sh
+sudo chmod 666 /var/run/docker.sock
+```
+  
+4. Set a `Name`, i.e., Docker-clioncv and select the docker `Image` that you built before, i.e., clioncv:latest.
+
+5. Modify the `Container Settings` to select `Gearwheel` symbol.
+  - Adjust the following valumes:
+    - `/dev:/dev`.
+    - `/tmp/.X11-unix:/tmp/.X11-unix`.
+  - Set the `Environment` variable:
+    - `DISPLAY` with value `:0`.
+  - Add the following run options:
+    - `--gpus all`.
+    - `--privileged`.
+  
+![Config container](images/02_config_docker_container.png)
+
+6. Click `Apply` for save all settings.
+
+![Docker Toolchain Settings](images/03_docker_toolchain.png)
+
+7. To configure the cmake profile, go to `File -> Settings -> Build, Execution, Deployment -> CMake` and add a new profile.
+
+8. Add a new profile by clicking `+`.
+
+9. Set `Name` and select the configured docker toolchain `Docker-clioncv`.
+
+![Config CMAKE Profile](images/04_config_cmake_profile.png)
+
+Click `OK` through all windows to save the settings.
+
+![Load CMAKE profile](images/05_load_cmake_profile.png)
 
 ## Acknowledgement
 
